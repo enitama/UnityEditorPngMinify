@@ -1,0 +1,6 @@
+{
+    "name": "PngMinify.Editor",
+    "includePlatforms": [
+        "Editor"
+    ]
+}
