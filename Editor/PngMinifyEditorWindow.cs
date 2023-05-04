@@ -139,7 +139,7 @@ namespace io.github.enitama.pngminify.Editor
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                Arguments = $"--verbose --quality {quality} \"{image.Path}\""
+                Arguments = $"--verbose --quality {quality} --skip-if-larger \"{image.Path}\""
             };
             var process = new Process
             {
