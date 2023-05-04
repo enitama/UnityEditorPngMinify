@@ -101,45 +101,13 @@ namespace io.github.enitama.pngminify.Editor
             Repaint();
             foreach (var image in images)
             {
-                int exitCode = await RunPngquant(path, image);
-            }
-            // Use MB not MiB.
-            double mbBefore = images.Aggregate(0L, (acc, x) => acc + x.BytesBefore) / 1000.0 / 1000.0;
-            double mbAfter = images.Aggregate(0L, (acc, x) => acc + (x.BytesAfter > 0 ? x.BytesAfter : x.BytesBefore)) / 1000.0 / 1000.0;
-            _outputBuilder.AppendLine($"Reduced {mbBefore} MB to {mbAfter} MB");
-            _isProcessRunning = false;
-            Repaint();
-        }
-
-        private Task<int> RunPngquant(string path, ImageInfo image)
-        {
-            var tcs = new TaskCompletionSource<int>();
-            var sb = new StringBuilder();
-            var startInfo = new ProcessStartInfo();
-            startInfo.CreateNoWindow = true;
-            startInfo.FileName = path;
-            startInfo.UseShellExecute = false;
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
-            // ArgumentList unavailable in Unity 2019.
-            startInfo.Arguments = $"--verbose --quality {_qualityValue} \"{image.Path}\"";
-            var process = new Process();
-            process.StartInfo = startInfo;
-            process.EnableRaisingEvents = true;
-            _outputBuilder.AppendLine("[Running]");
-            process.OutputDataReceived += (s, e) =>
-            {
-                _outputBuilder.AppendLine(e.Data);
-                Repaint();
-            };
-            process.ErrorDataReceived += (s, e) =>
-            {
-                _outputBuilder.AppendLine("[Error]" + e.Data);
-                Repaint();
-            };
-            process.Exited += (s, e) =>
-            {
-                _outputBuilder.AppendLine("[Finished] Error code: " + process.ExitCode);
+                _outputBuilder.AppendLine("[Running]");
+                int exitCode = await RunPngquant(path, image, _qualityValue, output =>
+                {
+                    _outputBuilder.AppendLine(output);
+                    Repaint();
+                });
+                _outputBuilder.AppendLine("[Finished] Error code: " + exitCode);
                 string newPath = Path.Combine(Path.GetDirectoryName(image.Path), Path.GetFileNameWithoutExtension(image.Path) + "-fs8" + Path.GetExtension(image.Path));
                 var newFileInfo = new FileInfo(newPath);
                 if (newFileInfo.Exists)
@@ -151,15 +119,43 @@ namespace io.github.enitama.pngminify.Editor
                 {
                     Debug.Log($"Could not find {newPath}, before {image.BytesBefore}");
                 }
-                tcs.SetResult(process.ExitCode);
+            }
+            // Use MB not MiB.
+            double mbBefore = images.Aggregate(0L, (acc, x) => acc + x.BytesBefore) / 1000.0 / 1000.0;
+            double mbAfter = images.Aggregate(0L, (acc, x) => acc + (x.BytesAfter > 0 ? x.BytesAfter : x.BytesBefore)) / 1000.0 / 1000.0;
+            _outputBuilder.AppendLine($"Reduced {mbBefore} MB to {mbAfter} MB");
+            _isProcessRunning = false;
+            Repaint();
+        }
+
+        private static Task<int> RunPngquant(string path, ImageInfo image, int quality, Action<string> outputHandler)
+        {
+            var tcs = new TaskCompletionSource<int>();
+            var sb = new StringBuilder();
+            var startInfo = new ProcessStartInfo
+            {
+                CreateNoWindow = true,
+                FileName = path,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                Arguments = $"--verbose --quality {quality} \"{image.Path}\""
             };
+            var process = new Process
+            {
+                StartInfo = startInfo,
+                EnableRaisingEvents = true
+            };
+            process.OutputDataReceived += (s, e) => outputHandler(e.Data);
+            process.ErrorDataReceived += (s, e) => outputHandler(e.Data);
+            process.Exited += (s, e) => tcs.SetResult(process.ExitCode);
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             return tcs.Task;
         }
 
-        private bool EnsurePngquant(string path)
+        private static bool EnsurePngquant(string path)
         {
             if (string.IsNullOrEmpty(path))
             {
