@@ -77,7 +77,7 @@ namespace io.github.enitama.pngminify.Editor
         private void OnGUI()
         {
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("PngMinify 0.0.2", EditorStyles.boldLabel);
+            GUILayout.Label("PngMinify 0.0.3", EditorStyles.boldLabel);
             _selectedLanguage = EditorGUILayout.Popup(_selectedLanguage, SupportedLanguages.Values.ToArray(), GUILayout.Width(100));
             EditorGUILayout.EndHorizontal();
 
