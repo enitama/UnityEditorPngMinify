@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Process = System.Diagnostics.Process;
 using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
@@ -74,7 +75,7 @@ namespace io.github.enitama.pngminify.Editor
                     var imagePaths = Directory.GetFiles(folderPath, "*.png", SearchOption.AllDirectories);
                     Debug.Log("png files: " + string.Join(",", imagePaths));
                     var images = GetImageInfos(imagePaths).ToList();
-                    RunPngquant(_pngquantPath, images);
+                    RunPngquantOnImages(_pngquantPath, images);
                 }
             }
             else
@@ -89,35 +90,30 @@ namespace io.github.enitama.pngminify.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        private void PopulateBytesAfter(List<ImageInfo> images)
-        {
-            foreach (var image in images)
-            {
-                var fileInfo = new FileInfo(image.Path);
-                if (fileInfo.Exists)
-                {
-                    string newPath = Path.Combine(Path.GetDirectoryName(image.Path), Path.GetFileNameWithoutExtension(image.Path) + "-fs8" + Path.GetExtension(image.Path));
-                    var newFileInfo = new FileInfo(newPath);
-                    if (newFileInfo.Exists)
-                    {
-                        Debug.Log($"Found {newPath}, before {fileInfo.Length}, after {newFileInfo.Length}");
-                        image.BytesAfter = newFileInfo.Length;
-                    }
-                    else
-                    {
-                        Debug.Log($"Could not find {newPath}, before {fileInfo.Length}");
-                    }
-                }
-            }
-        }
-
         private IEnumerable<ImageInfo> GetImageInfos(IEnumerable<string> images)
         {
             return images.Select(path => new ImageInfo { Path = path, BytesBefore = new FileInfo(path).Length });
         }
 
-        private void RunPngquant(string path, List<ImageInfo> images)
+        private async void RunPngquantOnImages(string path, List<ImageInfo> images)
         {
+            _isProcessRunning = true;
+            Repaint();
+            foreach (var image in images)
+            {
+                int exitCode = await RunPngquant(path, image);
+            }
+            // Use MB not MiB.
+            double mbBefore = images.Aggregate(0L, (acc, x) => acc + x.BytesBefore) / 1000.0 / 1000.0;
+            double mbAfter = images.Aggregate(0L, (acc, x) => acc + (x.BytesAfter > 0 ? x.BytesAfter : x.BytesBefore)) / 1000.0 / 1000.0;
+            _outputBuilder.AppendLine($"Reduced {mbBefore} MB to {mbAfter} MB");
+            _isProcessRunning = false;
+            Repaint();
+        }
+
+        private Task<int> RunPngquant(string path, ImageInfo image)
+        {
+            var tcs = new TaskCompletionSource<int>();
             var sb = new StringBuilder();
             var startInfo = new ProcessStartInfo();
             startInfo.CreateNoWindow = true;
@@ -126,7 +122,7 @@ namespace io.github.enitama.pngminify.Editor
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
             // ArgumentList unavailable in Unity 2019.
-            startInfo.Arguments = $"--verbose --quality {_qualityValue} " + string.Join(" ", images.Select(x => $"\"{x.Path}\""));
+            startInfo.Arguments = $"--verbose --quality {_qualityValue} \"{image.Path}\"";
             var process = new Process();
             process.StartInfo = startInfo;
             process.EnableRaisingEvents = true;
@@ -144,20 +140,23 @@ namespace io.github.enitama.pngminify.Editor
             process.Exited += (s, e) =>
             {
                 _outputBuilder.AppendLine("[Finished] Error code: " + process.ExitCode);
-                PopulateBytesAfter(images);
-                var test = images.ToList();
-                // Use MB not MiB.
-                double mbBefore = images.Aggregate(0L, (acc, x) => acc + x.BytesBefore) / 1000.0 / 1000.0;
-                double mbAfter = images.Aggregate(0L, (acc, x) => acc + (x.BytesAfter > 0 ? x.BytesAfter : x.BytesBefore)) / 1000.0 / 1000.0;
-                _outputBuilder.AppendLine($"Reduced {mbBefore} MB to {mbAfter} MB");
-                _isProcessRunning = false;
-                Repaint();
-                AssetDatabase.Refresh();
+                string newPath = Path.Combine(Path.GetDirectoryName(image.Path), Path.GetFileNameWithoutExtension(image.Path) + "-fs8" + Path.GetExtension(image.Path));
+                var newFileInfo = new FileInfo(newPath);
+                if (newFileInfo.Exists)
+                {
+                    Debug.Log($"Found {newPath}, before {image.BytesBefore}, after {newFileInfo.Length}");
+                    image.BytesAfter = newFileInfo.Length;
+                }
+                else
+                {
+                    Debug.Log($"Could not find {newPath}, before {image.BytesBefore}");
+                }
+                tcs.SetResult(process.ExitCode);
             };
-            _isProcessRunning = true;
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
+            return tcs.Task;
         }
 
         private bool EnsurePngquant(string path)
