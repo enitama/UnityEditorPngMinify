@@ -12,6 +12,20 @@ You really should be considering something like Git LFS otherwise, as Git is not
 
 Tested with Unity 2019.4.31f1 on Windows only.
 
+### Via VRChat Creator Companion
+
+Add the following community repository:
+
+```
+https://enitama.github.io/vpm-repos/vpm.json
+```
+
+The "PngMinify" package should become available for you to add to your Unity projects.
+
+### Via .unitypackage
+
+Coming soon.
+
 ### Via Git submodule
 
 Run the following in your `Assets` folder:
@@ -19,10 +33,6 @@ Run the following in your `Assets` folder:
 ```
 git submodule add https://github.com/enitama/UnityEditorPngMinify.git PngMinify
 ```
-
-### Via VRChat Creator Companion
-
-Coming soon.
 
 ## Usage
 
