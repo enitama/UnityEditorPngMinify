@@ -35,7 +35,7 @@ namespace io.github.enitama.pngminify.Editor
 
         private void OnGUI()
         {
-            GUILayout.Label("PngMinify 0.0.1", EditorStyles.boldLabel);
+            GUILayout.Label("PngMinify 0.0.2", EditorStyles.boldLabel);
 
             GUILayout.Space(10);
 

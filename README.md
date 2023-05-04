@@ -1,6 +1,6 @@
 # UnityEditorPngMinify
 
-A basic Unity Editor script for **lossy** png minification using pngquant.
+A Unity Editor script for **lossy** png minification using pngquant.
 
 ## Why?
 
